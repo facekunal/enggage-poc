@@ -1,36 +1,50 @@
-# Track Twitter Engagement 
+# Track Twitter Engagement for Blinq Ambassadors
 
-1. Overview
-The idea is to build a system that can track Twitter post engagement (i.e. likes, re-shares, comments, and views). This program will be for investors that will bring engagement with the product and bring more users. We will manually onboard the ambassadors on discord and provide some link or something to the ambassador through which they can publish their posts (basically register their posts). Another way is to have tracking for a short period like 7 days for each post. That will be more reasonable I believe. So after this tracking period the records won't be updated. Admin should be able to look at this engagement numbers for each ambassador in a time duration. 
+## 1. Overview
+Track Twitter engagement (likes, retweets, comments) on Blinq-related tweets posted by ambassadors. Ambassadors are onboarded via Discord and must include `#Blinq` in all product-related tweets. Engages.io is used as the platform — no custom code required.
 
-2. Goals
-a. Each post will be tracked for a week.
-b. Able to store the weekly engagement details for each tracked post.
-c. user or an investor should be able to register their post so that it can be tracked in our system. 
-    - Medium communication with the ambassadors will be on Discord. 
-    - Decide on the process of how the ambassador can register his post for tracking. Either it would be some API or through just some Discord message .
-d. Admin should be able to look up data for a date range where he will get a list of ambassadors and under each ambassador a list of posts. Engagement numbers for each post. Also, consolidated engagement for each ambassador. 
+## 2. Goals
+- Track engagement on tweets containing `#Blinq` from enrolled ambassadors
+- Onboard ambassadors entirely through Discord
+- Give admin visibility into per-ambassador engagement over time
+- Incentivize ambassadors based on engagement scores
 
-3. Users
-- Ambassadors or Social Media Influencers 
-- These are selective users - 30 to 50 only
+## 3. Users
+- Ambassadors / Social Media Influencers (30–50 users)
+- Admin (views engagement dashboard)
 
-4. Features
-You decide on the features. This will not be a proper long-term project. This is kind of a script or something to get this data and then incentivize the ambassadors 
+## 4. Implementation: Engages.io
 
-5. User Flow
-Ambassadors should be able to register their Twitter post for tracking via Discord because the mode of communication is Discord channel. 
-Then the tracking will start. 
-Our admin should be able to look up the data i.e. engagement numbers for each ambassador for the time duration. 
+### One-time Admin Setup
+1. Add the Engage bot to the Discord server
+2. Create a Twitter/X Campaign on Engages.io targeting the `#Blinq` hashtag
+3. Configure point values for likes, retweets, and comments
 
-6. Success Metrics
-- Engagement numbers are being tracked accurately 
-- Admin is able to look up the engagement numbers for all the ambassadors 
+### Ambassador Onboarding
+1. Ambassador joins the Discord server
+2. Ambassador connects their Twitter account via the Engage bot command
+3. They are now enrolled — all `#Blinq` tweets will be tracked automatically
 
-7. Resources
-- https://docs.engages.io/ 
-- Feel free to try other 3rd party tools
+### Ongoing Flow
+- Ambassador tweets about Blinq with `#Blinq` in the tweet
+- Engages.io auto-tracks engagement (likes, retweets, comments) on those tweets
+- Admin views the Engages.io dashboard for per-ambassador engagement leaderboard (weekly / bi-weekly / monthly views)
+- Admin uses engagement scores to incentivize ambassadors via Engage's built-in points → rewards system (raffles, auctions, marketplace)
 
-8. Notes
-- Intially, admin functionality can be skipped and this lookup can be public.
-- For 3rd party dependency, Refreshing data over 1 hour, 6 hours, or even 1 day is fine because we'll be analyzing the track data for a long date range for like a week or month.
+## 5. Ambassador Rule
+Every product-related tweet must include `#Blinq`. Tweets without this hashtag will not be tracked.
+
+## 6. Success Metrics
+- Engagement numbers are tracked accurately per ambassador
+- Admin can view engagement leaderboard and scores on Engages.io dashboard
+
+## 7. Tradeoffs & Limitations
+- Tracking is hashtag-based, not post-registration-based — relies on ambassadors consistently using `#Blinq`
+- Time window for tracking is Engages.io's rolling windows (weekly/bi-weekly/monthly), not a custom 7-day per-post countdown
+- Admin reporting is via Engages.io's built-in dashboard, not a custom date-range query tool
+
+## 8. Resources
+- [Engages.io](https://www.engages.io/)
+- [Engage Discord Setup](https://docs.engages.io/engage-discord/setup)
+- [Auto Tweet Tracking](https://docs.engages.io/new-update-and-features/auto-tweet-tracking)
+- [Twitter/X Campaign Setup Guide](https://www.engages.io/guides/twitter-campaigns)
