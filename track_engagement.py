@@ -3,9 +3,14 @@
 track_engagement.py — Track branded tweet engagement per whitelisted ambassador.
 
 Usage:
-    cp .env.example .env          # add your TWITTERAPI_KEY
+    cp .env.example .env          # add your API key(s)
     uv run track_engagement.py --from 2026-05-01 --to 2026-05-23
     uv run track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv results.csv
+    uv run track_engagement.py --from 2026-05-01 --to 2026-05-23 --provider xapi
+
+Providers:
+    twitterapi  (default) — twitterapi.io, requires TWITTERAPI_KEY, supports any date range
+    xapi        — Official X API v2, requires X_BEARER_TOKEN, last 7 days on Free/Basic plan
 
 Ambassadors and hashtag are read from ambassadors_handles.json.
 Metrics pulled: likes, retweets, replies, views per tweet.
@@ -25,7 +30,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_URL = "https://api.twitterapi.io/twitter/tweet/advanced_search"
+TWITTERAPI_URL = "https://api.twitterapi.io/twitter/tweet/advanced_search"
+XAPI_SEARCH_URL = "https://api.twitter.com/2/tweets/search/recent"
 DEFAULT_AMBASSADORS_FILE = "ambassadors_handles.json"
 
 
@@ -80,6 +86,13 @@ def to_unix(date_str: str) -> int:
     return int(datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
 
 
+def to_iso(date_str: str, end_of_day: bool = False) -> str:
+    dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    if end_of_day:
+        dt = dt.replace(hour=23, minute=59, second=59)
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def load_config(path: str) -> tuple[str, list[str]]:
     if not os.path.exists(path):
         raise SystemExit(f"Config file not found: {path}")
@@ -95,6 +108,7 @@ def load_config(path: str) -> tuple[str, list[str]]:
 
 
 def fetch_ambassador_tweets(handle: str, hashtag: str, since_ts: int, until_ts: int, api_key: str) -> list[Tweet]:
+    """Fetch tweets via twitterapi.io."""
     query = f"from:{handle} {hashtag} since_time:{since_ts} until_time:{until_ts}"
     headers = {"X-API-Key": api_key}
     tweets = []
@@ -103,7 +117,7 @@ def fetch_ambassador_tweets(handle: str, hashtag: str, since_ts: int, until_ts: 
     while True:
         params = {"query": query, "queryType": "Latest", "cursor": cursor}
         try:
-            resp = requests.get(API_URL, headers=headers, params=params, timeout=15)
+            resp = requests.get(TWITTERAPI_URL, headers=headers, params=params, timeout=15)
             resp.raise_for_status()
         except requests.RequestException as e:
             print(f"    Warning: API error for @{handle}: {e}")
@@ -127,6 +141,59 @@ def fetch_ambassador_tweets(handle: str, hashtag: str, since_ts: int, until_ts: 
             break
         cursor = data.get("next_cursor", "")
         time.sleep(0.3)
+
+    return tweets
+
+
+def fetch_ambassador_tweets_xapi(handle: str, hashtag: str, from_date: str, to_date: str, bearer_token: str) -> list[Tweet]:
+    """Fetch tweets via official X API v2 (search/recent — last 7 days on Free/Basic plans)."""
+    query = f"from:{handle} {hashtag} -is:retweet"
+    headers = {"Authorization": f"Bearer {bearer_token}"}
+    params = {
+        "query": query,
+        "max_results": 100,
+        "start_time": to_iso(from_date),
+        "end_time": to_iso(to_date, end_of_day=True),
+        "tweet.fields": "public_metrics,created_at",
+        "expansions": "author_id",
+    }
+    tweets = []
+
+    while True:
+        try:
+            resp = requests.get(XAPI_SEARCH_URL, headers=headers, params=params, timeout=15)
+            if resp.status_code == 429:
+                reset = int(resp.headers.get("x-rate-limit-reset", time.time() + 60))
+                wait = max(reset - int(time.time()), 1)
+                print(f"    Rate limited, waiting {wait}s...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+        except requests.RequestException as e:
+            print(f"    Warning: X API error for @{handle}: {e}")
+            break
+
+        data = resp.json()
+        for t in data.get("data", []):
+            m = t.get("public_metrics", {})
+            tweet_id = t.get("id", "")
+            tweets.append(Tweet(
+                tweet_id=tweet_id,
+                url=f"https://x.com/{handle}/status/{tweet_id}",
+                text=t.get("text", "")[:100],
+                created_at=t.get("created_at", ""),
+                likes=m.get("like_count", 0),
+                retweets=m.get("retweet_count", 0),
+                replies=m.get("reply_count", 0),
+                views=m.get("impression_count", 0),
+                quotes=m.get("quote_count", 0),
+            ))
+
+        next_token = data.get("meta", {}).get("next_token")
+        if not next_token:
+            break
+        params["next_token"] = next_token
+        time.sleep(1)
 
     return tweets
 
@@ -165,24 +232,36 @@ def main():
     parser.add_argument("--csv", dest="csv_path", metavar="FILE", help="Save results to CSV")
     parser.add_argument("--config", default=DEFAULT_AMBASSADORS_FILE, metavar="FILE",
                         help=f"Ambassadors config JSON (default: {DEFAULT_AMBASSADORS_FILE})")
+    parser.add_argument("--provider", choices=["twitterapi", "xapi"], default="twitterapi",
+                        help="Data source: twitterapi (default, any date range) or xapi (official X API, last 7 days on Free/Basic)")
     args = parser.parse_args()
-
-    api_key = os.environ.get("TWITTERAPI_KEY")
-    if not api_key:
-        raise SystemExit("Error: set the TWITTERAPI_KEY environment variable before running.")
 
     since_ts = to_unix(args.from_date)
     until_ts = to_unix(args.to_date)
     hashtag, handles = load_config(args.config)
 
-    print(f"Fetching {hashtag} tweets for {len(handles)} ambassadors ({args.from_date} → {args.to_date})...")
-
-    all_stats = []
-    for handle in handles:
-        tweets = fetch_ambassador_tweets(handle, hashtag, since_ts, until_ts, api_key)
-        all_stats.append(AmbassadorStats(handle=handle, tweets=tweets))
-        status = f"{len(tweets)} tweet(s)" if tweets else "no tweets"
-        print(f"  @{handle}: {status}")
+    if args.provider == "xapi":
+        bearer_token = os.environ.get("X_BEARER_TOKEN")
+        if not bearer_token:
+            raise SystemExit("Error: set X_BEARER_TOKEN in your .env file for --provider xapi.")
+        print(f"Fetching {hashtag} tweets for {len(handles)} ambassadors via X API ({args.from_date} → {args.to_date})...")
+        all_stats = []
+        for handle in handles:
+            tweets = fetch_ambassador_tweets_xapi(handle, hashtag, args.from_date, args.to_date, bearer_token)
+            all_stats.append(AmbassadorStats(handle=handle, tweets=tweets))
+            status = f"{len(tweets)} tweet(s)" if tweets else "no tweets"
+            print(f"  @{handle}: {status}")
+    else:
+        api_key = os.environ.get("TWITTERAPI_KEY")
+        if not api_key:
+            raise SystemExit("Error: set TWITTERAPI_KEY in your .env file.")
+        print(f"Fetching {hashtag} tweets for {len(handles)} ambassadors via twitterapi.io ({args.from_date} → {args.to_date})...")
+        all_stats = []
+        for handle in handles:
+            tweets = fetch_ambassador_tweets(handle, hashtag, since_ts, until_ts, api_key)
+            all_stats.append(AmbassadorStats(handle=handle, tweets=tweets))
+            status = f"{len(tweets)} tweet(s)" if tweets else "no tweets"
+            print(f"  @{handle}: {status}")
 
     all_stats.sort(key=lambda s: s.total_engagement, reverse=True)
     print_leaderboard(all_stats, hashtag, args.from_date, args.to_date)
