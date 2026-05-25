@@ -1,0 +1,59 @@
+# Blinq Ambassador Engagement Tracker
+
+Track Twitter/X engagement on tweets from whitelisted Blinq ambassadors that include `#blinqbladers`.
+
+## What It Does
+
+Queries each ambassador's tweets via [twitterapi.io](https://twitterapi.io), aggregates likes, retweets, replies, quotes, and views, then outputs a ranked leaderboard. Results can be exported to CSV.
+
+## Setup
+
+**1. Install dependency**
+```bash
+pip install requests
+```
+
+**2. Get a twitterapi.io API key**
+
+Sign up at [twitterapi.io](https://twitterapi.io) — free ~$0.1 credit on signup, no card required.
+
+**3. Set your API key**
+```bash
+export TWITTERAPI_KEY=your_api_key_here
+```
+
+## Running
+
+```bash
+python track_engagement.py --from 2026-05-01 --to 2026-05-23
+```
+
+Save results to CSV:
+```bash
+python track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv results.csv
+```
+
+## Managing Ambassadors
+
+Edit `ambassadors_handles.json` to add or remove ambassadors. No code changes needed.
+
+```json
+{
+  "hashtag": "#blinqbladers",
+  "ambassadors": [
+    "@handle1",
+    "@handle2"
+  ]
+}
+```
+
+Ambassadors must include `#blinqbladers` in their product-related tweets to be tracked.
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--from YYYY-MM-DD` | Start date (required) |
+| `--to YYYY-MM-DD` | End date (required) |
+| `--csv FILE` | Save leaderboard to CSV |
+| `--config FILE` | Ambassadors JSON file (default: `ambassadors_handles.json`) |
