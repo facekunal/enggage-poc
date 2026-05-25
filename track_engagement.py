@@ -3,9 +3,9 @@
 track_engagement.py — Track branded tweet engagement per whitelisted ambassador.
 
 Usage:
-    export TWITTERAPI_KEY=your_api_key_here
-    python track_engagement.py --from 2026-05-01 --to 2026-05-23
-    python track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv results.csv
+    cp .env.example .env          # add your TWITTERAPI_KEY
+    uv run track_engagement.py --from 2026-05-01 --to 2026-05-23
+    uv run track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv results.csv
 
 Ambassadors and hashtag are read from ambassadors_handles.json.
 Metrics pulled: likes, retweets, replies, views per tweet.
@@ -21,6 +21,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 API_URL = "https://api.twitterapi.io/twitter/tweet/advanced_search"
 DEFAULT_AMBASSADORS_FILE = "ambassadors_handles.json"

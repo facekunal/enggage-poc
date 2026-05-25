@@ -1,0 +1,12 @@
+[project]
+name = "enggage"
+version = "0.1.0"
+description = "Track branded tweet engagement per whitelisted ambassador"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+track-engagement = "track_engagement:main"
