@@ -8,9 +8,16 @@ Queries each ambassador's tweets via [twitterapi.io](https://twitterapi.io), agg
 
 ## Setup
 
-**1. Install dependency**
+**1. Install [uv](https://docs.astral.sh/uv/) (recommended) or pip**
+
+With uv (handles dependencies automatically):
 ```bash
-pip install requests
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Or with pip:
+```bash
+pip install requests python-dotenv
 ```
 
 **2. Get a twitterapi.io API key**
@@ -18,19 +25,32 @@ pip install requests
 Sign up at [twitterapi.io](https://twitterapi.io) — free ~$0.1 credit on signup, no card required.
 
 **3. Set your API key**
+
+Create a `.env` file in the project root:
+```bash
+echo "TWITTERAPI_KEY=your_api_key_here" > .env
+```
+
+Or export it in your shell:
 ```bash
 export TWITTERAPI_KEY=your_api_key_here
 ```
 
 ## Running
 
+With uv (recommended — no separate install step needed):
+```bash
+uv run track_engagement.py --from 2026-05-01 --to 2026-05-23
+```
+
+With plain Python:
 ```bash
 python track_engagement.py --from 2026-05-01 --to 2026-05-23
 ```
 
 Save results to CSV:
 ```bash
-python track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv results.csv
+uv run track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv results.csv
 ```
 
 ## Managing Ambassadors
