@@ -1,8 +1,0 @@
-# Blinq Ambassador Twitter Handles
-# One handle per line — with or without leading @
-# Lines starting with # are ignored
-
-# Example handles — replace with real ambassador handles
-@blinq_ambassador1
-@blinq_ambassador2
-@blinq_ambassador3

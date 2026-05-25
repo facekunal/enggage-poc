@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-track_engagement.py — Track #Blinq tweet engagement per whitelisted ambassador.
+track_engagement.py — Track branded tweet engagement per whitelisted ambassador.
 
 Usage:
     export TWITTERAPI_KEY=your_api_key_here
     python track_engagement.py --from 2026-05-01 --to 2026-05-23
     python track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv results.csv
 
-Ambassadors are read from ambassadors.txt (one handle per line).
+Ambassadors and hashtag are read from ambassadors_handles.json.
 Metrics pulled: likes, retweets, replies, views per tweet.
 Output: leaderboard sorted by total engagement.
 """
 
 import argparse
 import csv
+import json
 import os
 import time
 from dataclasses import dataclass, field
@@ -22,8 +23,7 @@ from datetime import datetime, timezone
 import requests
 
 API_URL = "https://api.twitterapi.io/twitter/tweet/advanced_search"
-HASHTAG = "#Blinq"
-DEFAULT_AMBASSADORS_FILE = "ambassadors.txt"
+DEFAULT_AMBASSADORS_FILE = "ambassadors_handles.json"
 
 
 @dataclass
@@ -77,22 +77,22 @@ def to_unix(date_str: str) -> int:
     return int(datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
 
 
-def load_handles(path: str) -> list[str]:
+def load_config(path: str) -> tuple[str, list[str]]:
     if not os.path.exists(path):
-        raise SystemExit(f"Ambassadors file not found: {path}")
-    handles = []
+        raise SystemExit(f"Config file not found: {path}")
     with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                handles.append(line.lstrip("@"))
+        config = json.load(f)
+    hashtag = config.get("hashtag", "")
+    handles = [h.lstrip("@") for h in config.get("ambassadors", [])]
+    if not hashtag:
+        raise SystemExit("No 'hashtag' field found in config file.")
     if not handles:
-        raise SystemExit(f"No ambassador handles found in {path}")
-    return handles
+        raise SystemExit("No ambassadors found in config file.")
+    return hashtag, handles
 
 
-def fetch_ambassador_tweets(handle: str, since_ts: int, until_ts: int, api_key: str) -> list[Tweet]:
-    query = f"from:{handle} {HASHTAG} since_time:{since_ts} until_time:{until_ts}"
+def fetch_ambassador_tweets(handle: str, hashtag: str, since_ts: int, until_ts: int, api_key: str) -> list[Tweet]:
+    query = f"from:{handle} {hashtag} since_time:{since_ts} until_time:{until_ts}"
     headers = {"X-API-Key": api_key}
     tweets = []
     cursor = ""
@@ -128,9 +128,9 @@ def fetch_ambassador_tweets(handle: str, since_ts: int, until_ts: int, api_key: 
     return tweets
 
 
-def print_leaderboard(stats: list[AmbassadorStats], date_from: str, date_to: str):
+def print_leaderboard(stats: list[AmbassadorStats], hashtag: str, date_from: str, date_to: str):
     print(f"\nBlinq Ambassador Engagement Leaderboard — {date_from} to {date_to}")
-    print(f"Hashtag: {HASHTAG} | {len(stats)} ambassadors\n")
+    print(f"Hashtag: {hashtag} | {len(stats)} ambassadors\n")
 
     header = f"{'#':<4} {'Handle':<22} {'Tweets':>6} {'Likes':>8} {'Retweets':>10} {'Replies':>8} {'Views':>10} {'Total Eng':>10}"
     print(header)
@@ -156,12 +156,12 @@ def write_csv(stats: list[AmbassadorStats], path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=f"Track {HASHTAG} tweet engagement per ambassador")
+    parser = argparse.ArgumentParser(description="Track branded tweet engagement per ambassador")
     parser.add_argument("--from", dest="from_date", required=True, metavar="YYYY-MM-DD", help="Start date (inclusive)")
     parser.add_argument("--to", dest="to_date", required=True, metavar="YYYY-MM-DD", help="End date (inclusive)")
     parser.add_argument("--csv", dest="csv_path", metavar="FILE", help="Save results to CSV")
-    parser.add_argument("--ambassadors", default=DEFAULT_AMBASSADORS_FILE, metavar="FILE",
-                        help=f"Ambassador handles file (default: {DEFAULT_AMBASSADORS_FILE})")
+    parser.add_argument("--config", default=DEFAULT_AMBASSADORS_FILE, metavar="FILE",
+                        help=f"Ambassadors config JSON (default: {DEFAULT_AMBASSADORS_FILE})")
     args = parser.parse_args()
 
     api_key = os.environ.get("TWITTERAPI_KEY")
@@ -170,19 +170,19 @@ def main():
 
     since_ts = to_unix(args.from_date)
     until_ts = to_unix(args.to_date)
-    handles = load_handles(args.ambassadors)
+    hashtag, handles = load_config(args.config)
 
-    print(f"Fetching {HASHTAG} tweets for {len(handles)} ambassadors ({args.from_date} → {args.to_date})...")
+    print(f"Fetching {hashtag} tweets for {len(handles)} ambassadors ({args.from_date} → {args.to_date})...")
 
     all_stats = []
     for handle in handles:
-        tweets = fetch_ambassador_tweets(handle, since_ts, until_ts, api_key)
+        tweets = fetch_ambassador_tweets(handle, hashtag, since_ts, until_ts, api_key)
         all_stats.append(AmbassadorStats(handle=handle, tweets=tweets))
         status = f"{len(tweets)} tweet(s)" if tweets else "no tweets"
         print(f"  @{handle}: {status}")
 
     all_stats.sort(key=lambda s: s.total_engagement, reverse=True)
-    print_leaderboard(all_stats, args.from_date, args.to_date)
+    print_leaderboard(all_stats, hashtag, args.from_date, args.to_date)
 
     if args.csv_path:
         write_csv(all_stats, args.csv_path)
