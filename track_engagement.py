@@ -107,20 +107,31 @@ def load_config(path: str) -> tuple[str, list[str]]:
     return hashtag, handles
 
 
-def fetch_ambassador_tweets(handle: str, hashtag: str, since_ts: int, until_ts: int, api_key: str) -> list[Tweet]:
+def fetch_ambassador_tweets(handle: str, hashtag: str, since_ts: int, until_ts: int, api_key: str, no_hashtag: bool = False) -> list[Tweet]:
     """Fetch tweets via twitterapi.io."""
-    query = f"from:{handle} {hashtag} since_time:{since_ts} until_time:{until_ts}"
+    tag_part = "" if no_hashtag else f" {hashtag}"
+    query = f"from:{handle}{tag_part} since_time:{since_ts} until_time:{until_ts}"
     headers = {"X-API-Key": api_key}
     tweets = []
     cursor = ""
 
     while True:
         params = {"query": query, "queryType": "Latest", "cursor": cursor}
-        try:
-            resp = requests.get(TWITTERAPI_URL, headers=headers, params=params, timeout=15)
-            resp.raise_for_status()
-        except requests.RequestException as e:
-            print(f"    Warning: API error for @{handle}: {e}")
+        for attempt in range(5):
+            try:
+                resp = requests.get(TWITTERAPI_URL, headers=headers, params=params, timeout=15)
+                if resp.status_code == 429:
+                    wait = 10 * (attempt + 1)
+                    print(f"    Rate limited, waiting {wait}s...")
+                    time.sleep(wait)
+                    continue
+                resp.raise_for_status()
+                break
+            except requests.RequestException as e:
+                print(f"    Warning: API error for @{handle}: {e}")
+                return tweets
+        else:
+            print(f"    Warning: gave up after retries for @{handle}")
             break
 
         data = resp.json()
@@ -234,10 +245,11 @@ def main():
                         help=f"Ambassadors config JSON (default: {DEFAULT_AMBASSADORS_FILE})")
     parser.add_argument("--provider", choices=["twitterapi", "xapi"], default="twitterapi",
                         help="Data source: twitterapi (default, any date range) or xapi (official X API, last 7 days on Free/Basic)")
+    parser.add_argument("--no-hashtag", action="store_true", help="Fetch all tweets from ambassadors, ignoring the hashtag filter")
     args = parser.parse_args()
 
     since_ts = to_unix(args.from_date)
-    until_ts = to_unix(args.to_date)
+    until_ts = int(datetime.strptime(args.to_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).replace(hour=23, minute=59, second=59).timestamp())
     hashtag, handles = load_config(args.config)
 
     if args.provider == "xapi":
@@ -258,7 +270,7 @@ def main():
         print(f"Fetching {hashtag} tweets for {len(handles)} ambassadors via twitterapi.io ({args.from_date} → {args.to_date})...")
         all_stats = []
         for handle in handles:
-            tweets = fetch_ambassador_tweets(handle, hashtag, since_ts, until_ts, api_key)
+            tweets = fetch_ambassador_tweets(handle, hashtag, since_ts, until_ts, api_key, no_hashtag=args.no_hashtag)
             all_stats.append(AmbassadorStats(handle=handle, tweets=tweets))
             status = f"{len(tweets)} tweet(s)" if tweets else "no tweets"
             print(f"  @{handle}: {status}")
