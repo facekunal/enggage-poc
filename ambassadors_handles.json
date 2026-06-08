@@ -1,9 +1,25 @@
 {
-  "hashtag": "#blinqbladers",
+  "hashtag": "#predictonblinq",
   "ambassadors": [
-    "@chaandflower",
-    "@OeSharinga77967",
-    "@KunalKotiy77157",
-    "@KotiyalKunal"
+    { "handle": "@CryptPshyc", "url": "https://x.com/CryptPshyc" },
+    { "handle": "@World100x", "url": "https://x.com/World100x" },
+    { "handle": "@0xhikaeu", "url": "https://x.com/0xhikaeu" },
+    { "handle": "@Mathias_don001", "url": "https://x.com/Mathias_don001" },
+    { "handle": "@john_peace1", "url": "https://x.com/john_peace1" },
+    { "handle": "@zyro_eth", "url": "https://x.com/zyro_eth" },
+    { "handle": "@razzshares", "url": "https://x.com/razzshares" },
+    { "handle": "@oraclewilliams", "url": "https://x.com/oraclewilliams" },
+    { "handle": "@NxtCypher", "url": "https://x.com/NxtCypher" },
+    { "handle": "@Dzola17", "url": "https://x.com/Dzola17" },
+    { "handle": "@crypt0bells", "url": "https://x.com/crypt0bells" },
+    { "handle": "@aminulislamm018", "url": "https://x.com/aminulislamm018" },
+    { "handle": "@Lordsgood", "url": "https://x.com/Lordsgood" },
+    { "handle": "@mat_rash38998", "url": "https://x.com/mat_rash38998" },
+    { "handle": "@BlaqOnyemauche", "url": "https://x.com/BlaqOnyemauche" },
+    { "handle": "@mathew_kinzy", "url": "https://x.com/mathew_kinzy" },
+    { "handle": "@Debest_King", "url": "https://x.com/Debest_King" },
+    { "handle": "@chriscrypto_guy", "url": "https://x.com/chriscrypto_guy" },
+    { "handle": "@sosogamex", "url": "https://x.com/sosogamex" },
+    { "handle": "@JustineAnusi", "url": "https://x.com/JustineAnusi" }
   ]
 }

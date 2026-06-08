@@ -4,18 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A POC for tracking Twitter/X engagement by whitelisted Blinq ambassadors. Ambassadors must include `#blinqbladers` in product-related tweets. The main tool is a Python script that queries the twitterapi.io API and outputs a ranked leaderboard.
+A POC for tracking Twitter/X engagement by whitelisted Blinq ambassadors. Ambassadors must include `#predictonblinq` in product-related tweets. The main tool is a Python script that queries the twitterapi.io API and outputs a ranked leaderboard.
 
 ## Running the Script
 
 ```bash
 export TWITTERAPI_KEY=your_api_key_here
 python track_engagement.py --from 2026-05-01 --to 2026-05-23
-python track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv results.csv
+python track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv my_results.csv
 ```
 
 Optional flags:
-- `--csv FILE` — save leaderboard to CSV
+- `--csv FILE` — CSV filename saved under `outputs/`; auto-generated with date+timestamp if omitted
 - `--config FILE` — use a different ambassadors JSON file (default: `ambassadors_handles.json`)
 
 ## Architecture

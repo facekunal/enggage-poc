@@ -1,6 +1,6 @@
 # Blinq Ambassador Engagement Tracker
 
-Track Twitter/X engagement on tweets from whitelisted Blinq ambassadors that include `#blinqbladers`.
+Track Twitter/X engagement on tweets from whitelisted Blinq ambassadors that include `#predictonblinq`.
 
 ## What It Does
 
@@ -59,7 +59,7 @@ Edit `ambassadors_handles.json` to add or remove ambassadors. No code changes ne
 
 ```json
 {
-  "hashtag": "#blinqbladers",
+  "hashtag": "#predictonblinq",
   "ambassadors": [
     "@handle1",
     "@handle2"
@@ -67,7 +67,7 @@ Edit `ambassadors_handles.json` to add or remove ambassadors. No code changes ne
 }
 ```
 
-Ambassadors must include `#blinqbladers` in their product-related tweets to be tracked.
+Ambassadors must include `#predictonblinq` in their product-related tweets to be tracked.
 
 ## Options
 
