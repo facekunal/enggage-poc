@@ -6,7 +6,10 @@
       "Bash(awk '{print $2}')",
       "Bash(python3 -c \"import core; import track_engagement\")",
       "Bash(python3 -c \"import enggage.core; import enggage.providers.twitterapi; import enggage.providers.xapi; import enggage.output; import track_engagement\")",
-      "Bash(python3 -c \"import enggage.providers.xapi; import track_engagement\")"
+      "Bash(python3 -c \"import enggage.providers.xapi; import track_engagement\")",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "WebFetch(domain:docs.twitterapi.io)"
     ]
   }
 }
