@@ -10,13 +10,34 @@ A POC for tracking Twitter/X engagement by whitelisted Blinq ambassadors. Ambass
 
 ```bash
 export TWITTERAPI_KEY=your_api_key_here
-python track_engagement.py --from 2026-05-01 --to 2026-05-23
-python track_engagement.py --from 2026-05-01 --to 2026-05-23 --csv my_results.csv
+
+# Hashtag search (twitterapi.io — default)
+uv run track_engagement.py --from 2026-05-01 --to 2026-05-23 --mode hashtag
+
+# Per-ambassador search
+uv run track_engagement.py --from 2026-05-01 --to 2026-05-23 --mode per-ambassador
+
+# From-CSV: fetch metrics for tweet URLs listed in a Discord-exported CSV
+uv run track_engagement.py --mode from-csv --input-csv "discord_chat - tweets.csv"
 ```
 
 Optional flags:
-- `--csv FILE` — CSV filename saved under `outputs/`; auto-generated with date+timestamp if omitted
+- `--input-csv FILE` — CSV of tweet URLs (required for `--mode from-csv`); see format below
 - `--config FILE` — use a different ambassadors JSON file (default: `ambassadors_handles.json`)
+- `--from`/`--to` — date range (required for `hashtag`/`per-ambassador`; optional for `from-csv`, inferred from tweet timestamps if omitted)
+
+### `from-csv` input format
+
+A Discord message-export CSV with columns: `Date`, `Username`, `User tag`, `Content`.
+The `Content` column must contain an `x.com` or `twitter.com` status URL. Example:
+
+```
+Date,Username,User tag,Content
+"2026-05-30,03:48:59",papabakouu,#0,https://x.com/i/status/2059192303726866731
+"2026-05-30,06:09:05",razzshares,#0,https://x.com/razzshares/status/2059142667641278921?s=46
+```
+
+The Discord `Username` is ignored — the leaderboard uses the real Twitter handle returned by the API.
 
 ## Architecture
 

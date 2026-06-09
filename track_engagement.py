@@ -87,32 +87,83 @@ def mode_per_ambassador(args, hashtag, handles, url_map, since_ts, until_ts):
     return all_tweets
 
 
+def _resolve_date_range(args, all_tweets: list) -> tuple[str, str]:
+    if args.from_date and args.to_date:
+        return args.from_date, args.to_date
+    if not all_tweets:
+        today = datetime.now().strftime("%Y-%m-%d")
+        return today, today
+    dates = []
+    for _, tweet in all_tweets:
+        try:
+            dt = datetime.strptime(tweet.created_at, "%a %b %d %H:%M:%S %z %Y")
+            dates.append(dt.strftime("%Y-%m-%d"))
+        except (ValueError, TypeError):
+            pass
+    if not dates:
+        today = datetime.now().strftime("%Y-%m-%d")
+        return today, today
+    return min(dates), max(dates)
+
+
+def mode_from_csv(args, hashtag, handles, url_map):
+    api_key = os.environ.get("TWITTERAPI_KEY")
+    if not api_key:
+        raise SystemExit("Error: set TWITTERAPI_KEY in your .env file.")
+    if args.provider != "twitterapi":
+        print("  Note: --provider is ignored for --mode from-csv (always uses twitterapi.io)")
+    print(f"[from-csv / twitterapi] Reading {args.input_csv}...")
+    buckets, all_tweets = twitterapi.fetch_from_csv(args.input_csv, api_key)
+    date_from, date_to = _resolve_date_range(args, all_tweets)
+    stats = build_leaderboard(buckets, url_map)
+    print_leaderboard(stats, hashtag, date_from, date_to)
+    return all_tweets
+
+
 def main():
     parser = argparse.ArgumentParser(description="Track branded tweet engagement per ambassador")
-    parser.add_argument("--from", dest="from_date", required=True, metavar="YYYY-MM-DD")
-    parser.add_argument("--to", dest="to_date", required=True, metavar="YYYY-MM-DD")
-    parser.add_argument("--mode", choices=["hashtag", "per-ambassador"], default="hashtag",
-                        help="hashtag: one search for the hashtag (default); per-ambassador: one query per ambassador")
+    parser.add_argument("--from", dest="from_date", default=None, metavar="YYYY-MM-DD",
+                        help="Start date (required for hashtag/per-ambassador modes)")
+    parser.add_argument("--to", dest="to_date", default=None, metavar="YYYY-MM-DD",
+                        help="End date (required for hashtag/per-ambassador modes)")
+    parser.add_argument("--mode", choices=["hashtag", "per-ambassador", "from-csv"], default="hashtag",
+                        help="hashtag: one search for the hashtag (default); per-ambassador: one query per ambassador; from-csv: fetch metrics for tweet URLs listed in a CSV")
     parser.add_argument("--ambassadors-only", action="store_true",
                         help="(hashtag mode) restrict leaderboard to whitelisted ambassadors only")
     parser.add_argument("--provider", choices=["twitterapi", "xapi"], default="twitterapi",
                         help="twitterapi (default, any date range) or xapi (last 7 days, hashtag mode only)")
+    parser.add_argument("--input-csv", metavar="FILE",
+                        help="CSV file with tweet URLs (required for --mode from-csv)")
     parser.add_argument("--config", default=DEFAULT_AMBASSADORS_FILE, metavar="FILE",
                         help=f"Ambassadors config JSON (default: {DEFAULT_AMBASSADORS_FILE})")
     args = parser.parse_args()
 
-    since_ts = to_unix(args.from_date)
-    until_ts = to_unix_end_of_day(args.to_date)
+    if args.mode in ("hashtag", "per-ambassador"):
+        if not args.from_date or not args.to_date:
+            parser.error(f"--from and --to are required for --mode {args.mode}")
+    if args.mode == "from-csv":
+        if not args.input_csv:
+            parser.error("--input-csv is required for --mode from-csv")
+        if not Path(args.input_csv).exists():
+            parser.error(f"Input CSV not found: {args.input_csv}")
+
+    since_ts = to_unix(args.from_date) if args.from_date else None
+    until_ts = to_unix_end_of_day(args.to_date) if args.to_date else None
     hashtag, handles, url_map = load_config(args.config)
 
     if args.mode == "hashtag":
         all_tweets = mode_hashtag(args, hashtag, handles, url_map, since_ts, until_ts)
-    else:
+    elif args.mode == "per-ambassador":
         all_tweets = mode_per_ambassador(args, hashtag, handles, url_map, since_ts, until_ts)
+    else:
+        all_tweets = mode_from_csv(args, hashtag, handles, url_map)
 
     output_dir = Path("outputs")
     output_dir.mkdir(exist_ok=True)
-    timestamp = f"{args.from_date}_to_{args.to_date}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    if args.from_date and args.to_date:
+        timestamp = f"{args.from_date}_to_{args.to_date}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    else:
+        timestamp = f"fromcsv_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     write_csvs(all_tweets, output_dir, timestamp)
 
 

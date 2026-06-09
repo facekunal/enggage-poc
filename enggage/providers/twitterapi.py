@@ -4,6 +4,8 @@ providers/twitterapi.py — twitterapi.io client.
 Supports any date range. Requires TWITTERAPI_KEY env var.
 """
 
+import csv
+import re
 import time
 from datetime import datetime
 
@@ -13,6 +15,9 @@ from enggage.core import Tweet
 
 TWITTERAPI_URL = "https://api.twitterapi.io/twitter/tweet/advanced_search"
 TWITTERAPI_USER_TWEETS_URL = "https://api.twitterapi.io/twitter/user/last_tweets"
+TWITTERAPI_TWEETS_URL = "https://api.twitterapi.io/twitter/tweets"
+
+_TWEET_ID_RE = re.compile(r"https?://(?:www\.)?(?:x|twitter)\.com/(?:[^/]+/)?status/(\d+)")
 
 
 def _parse_tweet(t: dict) -> Tweet:
@@ -205,4 +210,95 @@ def fetch_per_ambassador(
         all_tweets.extend((handle_lower, t) for t in matching)
         time.sleep(0.5)
 
+    return buckets, all_tweets
+
+
+def _extract_tweet_id(url: str) -> str | None:
+    """Extract numeric tweet ID from any x.com/twitter.com status URL."""
+    m = _TWEET_ID_RE.search(url.strip())
+    return m.group(1) if m else None
+
+
+_BATCH_SIZE = 100
+
+
+def _fetch_tweets_batch(tweet_ids: list[str], api_key: str) -> list[dict]:
+    """Fetch up to _BATCH_SIZE tweets by ID in one request. Returns raw tweet dicts."""
+    headers = {"X-API-Key": api_key}
+    params = {"tweet_ids": ",".join(tweet_ids)}
+
+    for attempt in range(5):
+        try:
+            resp = requests.get(TWITTERAPI_TWEETS_URL, headers=headers, params=params, timeout=30)
+            if resp.status_code == 429:
+                wait = 10 * (attempt + 1)
+                print(f"    Rate limited, waiting {wait}s...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("tweets", [])
+        except requests.RequestException as e:
+            print(f"    Warning: API error fetching batch: {e}")
+            return []
+
+    print("    Warning: gave up after retries for batch")
+    return []
+
+
+def fetch_from_csv(
+    csv_path: str,
+    api_key: str,
+) -> tuple[dict[str, list[Tweet]], list[tuple[str, Tweet]]]:
+    """Read tweet URLs from a Discord-exported CSV, fetch metrics for each via
+    the batch tweets endpoint, and return (buckets_by_twitter_handle, all_tweets).
+
+    Expected CSV columns: Date, Username, User tag, Content
+    The Content column must contain an x.com/twitter.com status URL.
+    Duplicate tweet IDs are de-duplicated before any API calls.
+    The bucket key is the real Twitter handle from the API response, not the
+    Discord username.
+    """
+    tweet_ids: list[str] = []
+    seen: set[str] = set()
+
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            url = row.get("Content", "").strip()
+            if not url:
+                continue
+            tweet_id = _extract_tweet_id(url)
+            if tweet_id is None:
+                print(f"  Warning: could not extract tweet ID from: {url!r}")
+                continue
+            if tweet_id in seen:
+                continue
+            seen.add(tweet_id)
+            tweet_ids.append(tweet_id)
+
+    print(f"  {len(tweet_ids)} unique tweet IDs parsed from {csv_path}")
+
+    buckets: dict[str, list[Tweet]] = {}
+    all_tweets: list[tuple[str, Tweet]] = []
+
+    batches = [tweet_ids[i:i + _BATCH_SIZE] for i in range(0, len(tweet_ids), _BATCH_SIZE)]
+    for batch_num, batch in enumerate(batches, 1):
+        print(f"  Batch {batch_num}/{len(batches)}: fetching {len(batch)} tweets...")
+        raw_list = _fetch_tweets_batch(batch, api_key)
+        print(f"    Got {len(raw_list)} tweets back")
+
+        for raw in raw_list:
+            tweet = _parse_tweet(raw)
+            handle = tweet.author_handle.lower()
+            if not handle:
+                print(f"    Warning: no author handle for tweet {tweet.tweet_id}, skipping")
+                continue
+            buckets.setdefault(handle, []).append(tweet)
+            all_tweets.append((handle, tweet))
+
+        if batch_num < len(batches):
+            time.sleep(0.3)
+
+    print(f"  Done. {len(all_tweets)} tweets fetched across {len(buckets)} Twitter handles.")
     return buckets, all_tweets
