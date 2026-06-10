@@ -113,11 +113,11 @@ def mode_from_csv(args, hashtag, handles, url_map):
     if args.provider != "twitterapi":
         print("  Note: --provider is ignored for --mode from-csv (always uses twitterapi.io)")
     print(f"[from-csv / twitterapi] Reading {args.input_csv}...")
-    buckets, all_tweets = twitterapi.fetch_from_csv(args.input_csv, api_key)
+    buckets, all_tweets, discord_names = twitterapi.fetch_from_csv(args.input_csv, api_key)
     date_from, date_to = _resolve_date_range(args, all_tweets)
     stats = build_leaderboard(buckets, url_map)
     print_leaderboard(stats, hashtag, date_from, date_to)
-    return all_tweets
+    return all_tweets, discord_names
 
 
 def main():
@@ -151,12 +151,13 @@ def main():
     until_ts = to_unix_end_of_day(args.to_date) if args.to_date else None
     hashtag, handles, url_map = load_config(args.config)
 
+    discord_names = None
     if args.mode == "hashtag":
         all_tweets = mode_hashtag(args, hashtag, handles, url_map, since_ts, until_ts)
     elif args.mode == "per-ambassador":
         all_tweets = mode_per_ambassador(args, hashtag, handles, url_map, since_ts, until_ts)
     else:
-        all_tweets = mode_from_csv(args, hashtag, handles, url_map)
+        all_tweets, discord_names = mode_from_csv(args, hashtag, handles, url_map)
 
     output_dir = Path("outputs")
     output_dir.mkdir(exist_ok=True)
@@ -164,7 +165,7 @@ def main():
         timestamp = f"{args.from_date}_to_{args.to_date}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     else:
         timestamp = f"fromcsv_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    write_csvs(all_tweets, output_dir, timestamp)
+    write_csvs(all_tweets, output_dir, timestamp, discord_names)
 
 
 if __name__ == "__main__":

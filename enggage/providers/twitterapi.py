@@ -249,9 +249,10 @@ def _fetch_tweets_batch(tweet_ids: list[str], api_key: str) -> list[dict]:
 def fetch_from_csv(
     csv_path: str,
     api_key: str,
-) -> tuple[dict[str, list[Tweet]], list[tuple[str, Tweet]]]:
+) -> tuple[dict[str, list[Tweet]], list[tuple[str, Tweet]], dict[str, str]]:
     """Read tweet URLs from a Discord-exported CSV, fetch metrics for each via
-    the batch tweets endpoint, and return (buckets_by_twitter_handle, all_tweets).
+    the batch tweets endpoint, and return (buckets_by_twitter_handle, all_tweets,
+    discord_name_map{tweet_id -> discord_username}).
 
     Expected CSV columns: Date, Username, User tag, Content
     The Content column must contain an x.com/twitter.com status URL.
@@ -261,6 +262,7 @@ def fetch_from_csv(
     """
     tweet_ids: list[str] = []
     seen: set[str] = set()
+    discord_name_map: dict[str, str] = {}
 
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -276,6 +278,7 @@ def fetch_from_csv(
                 continue
             seen.add(tweet_id)
             tweet_ids.append(tweet_id)
+            discord_name_map[tweet_id] = row.get("Username", "").strip()
 
     print(f"  {len(tweet_ids)} unique tweet IDs parsed from {csv_path}")
 
@@ -301,4 +304,4 @@ def fetch_from_csv(
             time.sleep(0.3)
 
     print(f"  Done. {len(all_tweets)} tweets fetched across {len(buckets)} Twitter handles.")
-    return buckets, all_tweets
+    return buckets, all_tweets, discord_name_map

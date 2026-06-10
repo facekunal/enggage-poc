@@ -36,7 +36,12 @@ def print_leaderboard(stats: list[AmbassadorStats], hashtag: str, date_from: str
     print()
 
 
-def write_csvs(all_tweets: list[tuple[str, Tweet]], output_dir: Path, timestamp: str):
+def write_csvs(
+    all_tweets: list[tuple[str, Tweet]],
+    output_dir: Path,
+    timestamp: str,
+    discord_names: dict[str, str] | None = None,
+):
     tweets_path = output_dir / f"tweets_{timestamp}.csv"
     mentions_path = output_dir / f"mentions_{timestamp}.csv"
 
@@ -47,6 +52,8 @@ def write_csvs(all_tweets: list[tuple[str, Tweet]], output_dir: Path, timestamp:
         "author_handle", "author_name", "author_followers", "author_following",
         "author_verified", "author_tweet_count", "author_created_at", "author_bio", "author_location",
     ]
+    if discord_names is not None:
+        tweet_headers.append("discord_name")
     mention_headers = ["mention_handle", "mention_name", "tweet_ids", "mention_count"]
 
     mention_map: dict[str, dict] = {}
@@ -55,14 +62,17 @@ def write_csvs(all_tweets: list[tuple[str, Tweet]], output_dir: Path, timestamp:
         tw = csv.writer(tf)
         tw.writerow(tweet_headers)
         for _, t in all_tweets:
-            tw.writerow([
-                t.tweet_id, t.url, t.text, t.created_at, t.lang, t.source,
+            row = [
+                t.tweet_id, t.url, (t.text[:20] + "...") if len(t.text) > 20 else t.text, t.created_at, t.lang, t.source,
                 t.likes, t.retweets, t.replies, t.quotes, t.views, t.bookmarks,
                 t.is_reply, t.in_reply_to_id, t.in_reply_to_username, t.conversation_id,
                 ",".join(t.hashtags),
                 t.author_handle, t.author_name, t.author_followers, t.author_following,
                 t.author_verified, t.author_tweet_count, t.author_created_at, t.author_bio, t.author_location,
-            ])
+            ]
+            if discord_names is not None:
+                row.append(discord_names.get(t.tweet_id, ""))
+            tw.writerow(row)
             for m in t.mentions:
                 h = m["handle"].lower()
                 if h not in mention_map:
