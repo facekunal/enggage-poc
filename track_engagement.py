@@ -107,13 +107,18 @@ def _resolve_date_range(args, all_tweets: list) -> tuple[str, str]:
 
 
 def mode_from_csv(args, hashtag, handles, url_map):
-    api_key = os.environ.get("TWITTERAPI_KEY")
-    if not api_key:
-        raise SystemExit("Error: set TWITTERAPI_KEY in your .env file.")
-    if args.provider != "twitterapi":
-        print("  Note: --provider is ignored for --mode from-csv (always uses twitterapi.io)")
-    print(f"[from-csv / twitterapi] Reading {args.input_csv}...")
-    buckets, all_tweets, discord_names = twitterapi.fetch_from_csv(args.input_csv, api_key)
+    if args.provider == "xapi":
+        bearer_token = os.environ.get("X_BEARER_TOKEN")
+        if not bearer_token:
+            raise SystemExit("Error: set X_BEARER_TOKEN in your .env file for --provider xapi.")
+        print(f"[from-csv / xapi] Reading {args.input_csv}...")
+        buckets, all_tweets, discord_names = xapi.fetch_from_csv(args.input_csv, bearer_token)
+    else:
+        api_key = os.environ.get("TWITTERAPI_KEY")
+        if not api_key:
+            raise SystemExit("Error: set TWITTERAPI_KEY in your .env file.")
+        print(f"[from-csv / twitterapi] Reading {args.input_csv}...")
+        buckets, all_tweets, discord_names = twitterapi.fetch_from_csv(args.input_csv, api_key)
     date_from, date_to = _resolve_date_range(args, all_tweets)
     stats = build_leaderboard(buckets, url_map)
     print_leaderboard(stats, hashtag, date_from, date_to)
@@ -131,7 +136,7 @@ def main():
     parser.add_argument("--ambassadors-only", action="store_true",
                         help="(hashtag mode) restrict leaderboard to whitelisted ambassadors only")
     parser.add_argument("--provider", choices=["twitterapi", "xapi"], default="twitterapi",
-                        help="twitterapi (default, any date range) or xapi (last 7 days, hashtag mode only)")
+                        help="twitterapi (default, any date range) or xapi (Official X API v2; from-csv: any tweet IDs; hashtag/per-ambassador: last 7 days only)")
     parser.add_argument("--input-csv", metavar="FILE",
                         help="CSV file with tweet URLs (required for --mode from-csv)")
     parser.add_argument("--config", default=DEFAULT_AMBASSADORS_FILE, metavar="FILE",
